@@ -1,0 +1,53 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Configuration (sensitive)
+config.php
+
+# Composer
+composer.phar
+composer.lock
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+error_log
+debug.log
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Uploads (if you add upload functionality)
+/uploads/*
+!/uploads/.gitkeep
+
+# Backup files
+*.sql
+*.sql.gz
+*.bak
+*.backup
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# PHPStorm
+.phpintel/
+
+# Build files
+/dist/
+/build/

@@ -1,0 +1,32 @@
+{
+    "name": "school-bus-tracker/website",
+    "description": "School Bus Tracking Website for Hostinger Deployment",
+    "type": "project",
+    "require": {
+        "php": ">=7.4",
+        "phpmailer/phpmailer": "^6.8"
+    },
+    "require-dev": {},
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "School Bus Tracker",
+            "email": "schoolbustracker.com@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "echo 'Installation complete. Please configure config.php before use.'"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true
+    }
+}

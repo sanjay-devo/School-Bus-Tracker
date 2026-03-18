@@ -1,0 +1,57 @@
+MIT License
+
+Copyright (c) 2025 School Bus Tracker
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+THIRD-PARTY COMPONENTS:
+
+This software uses the following third-party components:
+
+1. PHPMailer (https://github.com/PHPMailer/PHPMailer)
+   License: LGPL-2.1
+   
+2. Google Maps JavaScript API (https://developers.google.com/maps)
+   Subject to Google Maps Platform Terms of Service
+   
+3. Google Fonts (https://fonts.google.com)
+   License: Apache License 2.0
+
+---
+
+IMPORTANT NOTES:
+
+1. Google Maps API Key included in this project is for demonstration purposes.
+   Please obtain your own API key from Google Cloud Console.
+
+2. Email credentials included are for demonstration purposes.
+   Please use your own SMTP credentials in production.
+
+3. This software is provided as-is for educational and commercial use.
+
+4. The authors assume no liability for any misuse or data breaches.
+
+5. Users are responsible for complying with local data protection laws
+   (GDPR, CCPA, etc.) when deploying this system.
+
+---
+
+For support, please refer to the documentation included with this project.
