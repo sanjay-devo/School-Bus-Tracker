@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logout - School Bus Tracker</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-box" style="text-align: center;">
+            <h2>Logging out...</h2>
+            <p>Please wait while we log you out.</p>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { logoutUser } from '/assets/js/firebase-auth.js';
+        
+        async function logout() {
+            try {
+                const result = await logoutUser();
+                if (result.success) {
+                    // Redirect to login page
+                    setTimeout(() => {
+                        window.location.href = '/index.html';
+                    }, 500);
+                } else {
+                    alert('Logout failed: ' + result.error);
+                    window.location.href = '/index.html';
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = '/index.html';
+            }
+        }
+        
+        // Start logout when page loads
+        window.addEventListener('load', logout);
+    </script>
+</body>
+</html>

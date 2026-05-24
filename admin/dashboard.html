@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - School Bus Tracker</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAxn47G2g9sT3WUEMFEnX_qZB3s8wXkoGM&libraries=geometry"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Admin Panel</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/admin/dashboard.html" class="nav-item active">
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin/drivers.html" class="nav-item">
+                    <span>Drivers</span>
+                </a>
+                <a href="/admin/subadmins.html" class="nav-item">
+                    <span>Sub Admins</span>
+                </a>
+                <a href="/admin/parents.html" class="nav-item">
+                    <span>Parents</span>
+                </a>
+                <a href="/admin/students.html" class="nav-item">
+                    <span>Students</span>
+                </a>
+                <a href="/admin/buses.html" class="nav-item">
+                    <span>Buses</span>
+                </a>
+                <a href="/admin/routes.html" class="nav-item">
+                    <span>Routes</span>
+                </a>
+                <a href="/admin/trips.html" class="nav-item">
+                    <span>Trip Reports</span>
+                </a>
+                <a href="/admin/live-tracking.html" class="nav-item">
+                    <span>Live Tracking</span>
+                </a>
+                <a href="/logout.html" class="nav-item">
+                    <span>Logout</span>
+                </a>
+            </nav>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Admin Dashboard</h1>
+                <div class="header-actions">
+                    <span>Welcome, <span id="user-name">Admin</span></span>
+                </div>
+            </header>
+            
+            <div class="dashboard-content">
+                <!-- Statistics Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">👤</div>
+                        <div class="stat-content">
+                            <h3 id="driver-count">0</h3>
+                            <p>Active Drivers</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">👨‍👩‍👧</div>
+                        <div class="stat-content">
+                            <h3 id="parent-count">0</h3>
+                            <p>Parents</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">🎓</div>
+                        <div class="stat-content">
+                            <h3 id="student-count">0</h3>
+                            <p>Students</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">🚌</div>
+                        <div class="stat-content">
+                            <h3 id="bus-count">0</h3>
+                            <p>Buses</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card highlight">
+                        <div class="stat-icon">🔴</div>
+                        <div class="stat-content">
+                            <h3 id="active-trips-count">0</h3>
+                            <p>Active Trips</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Active Trips -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h3>Active Trips</h3>
+                        <a href="/admin/live-tracking.html" class="btn btn-primary btn-sm">View on Map</a>
+                    </div>
+                    <div class="card-body">
+                        <div id="active-trips-container">
+                            <p class="text-muted">Loading trips...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h3>Quick Actions</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="quick-actions">
+                            <a href="/admin/drivers.html?action=add" class="btn btn-success">Add Driver</a>
+                            <a href="/admin/subadmins.html?action=add" class="btn btn-success">Create Sub Admin</a>
+                            <a href="/admin/parents.html?action=add" class="btn btn-success">Add Parent</a>
+                            <a href="/admin/students.html?action=add" class="btn btn-success">Add Student</a>
+                            <a href="/admin/buses.html?action=add" class="btn btn-success">Add Bus</a>
+                            <a href="/admin/routes.html?action=add" class="btn btn-success">Add Route</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script type="module">
+        import { requireRole } from '/assets/js/utils.js';
+        import { getAllUsers, getAllStudents, getAllBuses, getActiveTrips, subscribeToData } from '/assets/js/firebase-db.js';
+        import { formatTime } from '/assets/js/utils.js';
+        
+        // Require admin role
+        async function init() {
+            const authUser = await requireRole(['admin', 'sub_admin']);
+            if (!authUser) return;
+            
+            document.getElementById('user-name').textContent = authUser.userData.name;
+            
+            // Load statistics
+            loadStatistics();
+            loadActiveTrips();
+        }
+        
+        async function loadStatistics() {
+            try {
+                const drivers = await getAllUsers('driver');
+                const parents = await getAllUsers('parent');
+                const students = await getAllStudents();
+                const buses = await getAllBuses();
+                const activeTrips = await getActiveTrips();
+                
+                document.getElementById('driver-count').textContent = drivers.length;
+                document.getElementById('parent-count').textContent = parents.length;
+                document.getElementById('student-count').textContent = students.length;
+                document.getElementById('bus-count').textContent = buses.length;
+                document.getElementById('active-trips-count').textContent = activeTrips.length;
+            } catch (error) {
+                console.error('Error loading statistics:', error);
+            }
+        }
+        
+        async function loadActiveTrips() {
+            try {
+                const trips = await getActiveTrips();
+                const container = document.getElementById('active-trips-container');
+                
+                if (!trips || trips.length === 0) {
+                    container.innerHTML = '<p class="text-muted">No active trips at the moment.</p>';
+                    return;
+                }
+                
+                // Get all necessary data for trips
+                const drivers = await getAllUsers('driver');
+                const buses = await getAllBuses();
+                
+                let html = '<div class="table-responsive"><table class="table"><thead><tr>';
+                html += '<th>Trip ID</th><th>Bus</th><th>Driver</th><th>Started</th><th>Actions</th></tr></thead><tbody>';
+                
+                trips.forEach(trip => {
+                    const driver = drivers.find(d => d.uid === trip.driverId) || {};
+                    const bus = buses.find(b => b.id === trip.busId) || {};
+                    
+                    html += `
+                        <tr>
+                            <td>#${trip.id}</td>
+                            <td>${bus.busNumber || 'N/A'}</td>
+                            <td>${driver.name || 'N/A'}</td>
+                            <td>${trip.createdAt ? formatTime(trip.createdAt) : 'N/A'}</td>
+                            <td>
+                                <a href="/admin/live-tracking.html?trip_id=${trip.id}" class="btn btn-sm btn-primary">Track</a>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading active trips:', error);
+                document.getElementById('active-trips-container').innerHTML = '<p class="text-danger">Error loading trips</p>';
+            }
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', init);
+        
+        // Refresh statistics every 30 seconds
+        setInterval(loadStatistics, 30000);
+        setInterval(loadActiveTrips, 30000);
+    </script>
+</body>
+</html>

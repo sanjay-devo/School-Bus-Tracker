@@ -1,53 +1,108 @@
-# School Bus Tracker - Apache Configuration
+# School Bus Tracker - Firebase Edition
+# Apache Configuration for Static HTML + Firebase Backend
 
 # Enable Rewrite Engine
 RewriteEngine On
+RewriteBase /
 
-# Force HTTPS (Important for geolocation to work without repeated prompts)
+# ===== HTTPS ENFORCEMENT =====
+# Force HTTPS (Required for geolocation to work without permission popups)
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# Set default charset
-AddDefaultCharset UTF-8
-
+# ===== SECURITY =====
 # Prevent directory browsing
 Options -Indexes
 
-# Set default index files
-DirectoryIndex index.php index.html
-
-# PHP Configuration
-<IfModule mod_php7.c>
-    php_value upload_max_filesize 10M
-    php_value post_max_size 10M
-    php_value max_execution_time 300
-    php_value max_input_time 300
-    php_value memory_limit 256M
-</IfModule>
+# Add UTF-8 charset
+AddDefaultCharset UTF-8
 
 # Security Headers
 <IfModule mod_headers.c>
+    # Prevent MIME type detection
     Header set X-Content-Type-Options "nosniff"
+    
+    # Prevent framing (clickjacking protection)
     Header set X-Frame-Options "SAMEORIGIN"
+    
+    # Enable XSS protection
     Header set X-XSS-Protection "1; mode=block"
+    
+    # Referrer policy
     Header set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Content Security Policy
+    Header set Content-Security-Policy "default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval'; script-src 'self' https: 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
 </IfModule>
 
-# Protect sensitive files
-<FilesMatch "^(config\.php|\.env|\.htaccess|\.git)">
+# ===== FILE PROTECTION =====
+# Block access to sensitive files and old PHP files
+<FilesMatch "\.(php|env|json|sql|bak|htaccess|git)$">
     Order allow,deny
     Deny from all
 </FilesMatch>
 
-# Cache static assets
+# Block old PHP files specifically
+<FilesMatch "^(config|setup_database|debug_db)\.php$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# ===== DEFAULT INDEX =====
+DirectoryIndex index.html
+
+# ===== HTML/SPA ROUTING =====
+# Enable rewriting
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.html [L]
+
+# ===== CACHING =====
 <IfModule mod_expires.c>
     ExpiresActive On
+    
+    # Images - 1 year
     ExpiresByType image/jpg "access plus 1 year"
     ExpiresByType image/jpeg "access plus 1 year"
     ExpiresByType image/gif "access plus 1 year"
     ExpiresByType image/png "access plus 1 year"
     ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    
+    # Stylesheets - 1 month
     ExpiresByType text/css "access plus 1 month"
+    ExpiresByType text/less "access plus 1 month"
+    
+    # JavaScript - 1 month
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    
+    # Fonts - 1 year
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType font/otf "access plus 1 year"
+    ExpiresByType font/eot "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType application/x-font-truetype "access plus 1 year"
+    ExpiresByType application/x-font-opentype "access plus 1 year"
+    ExpiresByType application/x-font-woff "access plus 1 year"
+    
+    # HTML - Never cache (for dynamic content)
+    ExpiresByType text/html "now"
+    ExpiresByType application/xhtml+xml "now"
+</IfModule>
+
+# ===== COMPRESSION =====
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript
+</IfModule>
+
+# ===== CORS FOR FONTS =====
+<FilesMatch "\.(ttf|ttc|otf|eot|woff|woff2|font.css)$">
+    <IfModule mod_headers.c>
+        Header add Access-Control-Allow-Origin "*"
+    </IfModule>
+</FilesMatch>
     ExpiresByType application/javascript "access plus 1 month"
 </IfModule>
 

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Parent</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2>Parent Panel</h2></div>
+            <nav class="sidebar-nav">
+                <a href="/parent/dashboard.html" class="nav-item"><span>Dashboard</span></a>
+                <a href="/parent/students.html" class="nav-item"><span>My Students</span></a>
+                <a href="/parent/trip_history.html" class="nav-item"><span>Trip History</span></a>
+                <a href="/parent/profile.html" class="nav-item active"><span>Profile</span></a>
+                <a href="/logout.html" class="nav-item"><span>Logout</span></a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="content-header"><h1>My Profile</h1></header>
+            <div class="dashboard-content">
+                <div class="card">
+                    <div class="card-body" id="profile-container">
+                        <p class="text-muted">Loading profile...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script type="module">
+        import { requireRole } from '/assets/js/utils.js';
+        
+        async function init() {
+            const authUser = await requireRole('parent');
+            if (!authUser) return;
+            
+            const container = document.getElementById('profile-container');
+            const data = authUser.userData;
+            
+            container.innerHTML = `
+                <div class="info-grid">
+                    <div class="info-item"><label>Name:</label><span>${data.name || 'N/A'}</span></div>
+                    <div class="info-item"><label>Email:</label><span>${data.email || 'N/A'}</span></div>
+                    <div class="info-item"><label>Mobile:</label><span>${data.mobile || 'N/A'}</span></div>
+                    <div class="info-item"><label>Role:</label><span>${data.role || 'N/A'}</span></div>
+                    <div class="info-item"><label>Member Since:</label><span>${new Date(data.createdAt).toLocaleDateString()}</span></div>
+                </div>
+            `;
+        }
+        
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

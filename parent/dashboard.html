@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Dashboard - School Bus Tracker</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAxn47G2g9sT3WUEMFEnX_qZB3s8wXkoGM&libraries=geometry"></script>
+    <style>
+        .trip-status-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .trip-status-box.status-inactive {
+            background: linear-gradient(135deg, #868f96 0%, #596164 100%);
+        }
+        
+        .trip-status-box.status-active {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-inactive .status-indicator { background: #ccc; }
+        .status-active .status-indicator { background: #00ff00; animation: blink 1.5s infinite; }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        #tracking-map {
+            width: 100%;
+            height: 400px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .students-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .student-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .student-card:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .student-card.active {
+            border-color: var(--primary-color);
+            background: rgba(33, 150, 243, 0.05);
+        }
+        
+        .student-card h4 {
+            margin: 0 0 8px 0;
+            color: #333;
+        }
+        
+        .student-card p {
+            margin: 4px 0;
+            font-size: 13px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Parent Panel</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/parent/dashboard.html" class="nav-item active">
+                    <span>Dashboard</span>
+                </a>
+                <a href="/parent/students.html" class="nav-item">
+                    <span>My Students</span>
+                </a>
+                <a href="/parent/trip_history.html" class="nav-item">
+                    <span>Trip History</span>
+                </a>
+                <a href="/parent/profile.html" class="nav-item">
+                    <span>Profile</span>
+                </a>
+                <a href="/logout.html" class="nav-item">
+                    <span>Logout</span>
+                </a>
+            </nav>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Welcome, <span id="parent-name">Parent</span></h1>
+                <div class="header-actions">
+                    <span class="status-badge" id="connection-status">Connected</span>
+                </div>
+            </header>
+            
+            <div class="dashboard-content">
+                <!-- Students Selection -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>My Children</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="students-grid" id="students-grid">
+                            <p class="text-muted">Loading students...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Trip Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Bus Trip Status</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="trip-status-container">
+                            <p class="text-muted">Select a student to view trip status</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Live Map Tracking -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Live Bus Location</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="tracking-map"></div>
+                        <div id="bus-info" style="margin-top: 15px;">
+                            <p class="text-muted">Select a student to see bus location on map</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Driver Information -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Driver Information</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="driver-info-container">
+                            <p class="text-muted">Select a student to view driver info</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Trip History Quick View -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Recent Trips</h3>
+                        <a href="/parent/trip_history.html" class="btn btn-sm btn-primary">View All</a>
+                    </div>
+                    <div class="card-body">
+                        <div id="recent-trips-container">
+                            <p class="text-muted">No recent trips</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script type="module">
+        import { requireRole, formatDateTime, calculateDistance, estimateETA } from '/assets/js/utils.js';
+        import { 
+            getStudentsByParent, 
+            getBusData, 
+            getDriverData,
+            getAllTrips,
+            subscribeToData,
+            startTrackingBus,
+            stopTrackingBus
+        } from '/assets/js/firebase-db.js';
+        
+        let authUser = null;
+        let map = null;
+        let selectedStudent = null;
+        let busMarker = null;
+        let locationUnsubscribe = null;
+        let activeBusUnsubscribe = null;
+        
+        // Initialize
+        async function init() {
+            authUser = await requireRole('parent');
+            if (!authUser) return;
+            
+            document.getElementById('parent-name').textContent = authUser.userData.name;
+            
+            // Initialize map
+            initializeMap();
+            
+            // Load students
+            await loadStudents();
+            
+            // Monitor online/offline
+            window.addEventListener('online', () => {
+                document.getElementById('connection-status').textContent = 'Connected';
+                document.getElementById('connection-status').className = 'status-badge status-online';
+            });
+            
+            window.addEventListener('offline', () => {
+                document.getElementById('connection-status').textContent = 'Offline';
+                document.getElementById('connection-status').className = 'status-badge status-offline';
+            });
+        }
+        
+        function initializeMap() {
+            const mapOptions = {
+                zoom: 15,
+                center: { lat: 28.7041, lng: 77.1025 }, // Default to Delhi
+                mapTypeId: google.maps.MapTypeId.ROADMAP,
+                styles: [
+                    {
+                        "featureType": "poi",
+                        "elementType": "labels",
+                        "stylers": [{ "visibility": "off" }]
+                    }
+                ]
+            };
+            
+            map = new google.maps.Map(document.getElementById('tracking-map'), mapOptions);
+        }
+        
+        async function loadStudents() {
+            try {
+                const students = await getStudentsByParent(authUser.user.uid);
+                const grid = document.getElementById('students-grid');
+                
+                if (!students || students.length === 0) {
+                    grid.innerHTML = '<p class="text-muted">No students assigned yet</p>';
+                    return;
+                }
+                
+                grid.innerHTML = '';
+                students.forEach((student, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'student-card' + (index === 0 ? ' active' : '');
+                    card.innerHTML = `
+                        <h4>${student.name || 'Student'}</h4>
+                        <p>Class: ${student.class || 'N/A'}</p>
+                        <p>Roll: ${student.rollNumber || 'N/A'}</p>
+                    `;
+                    card.addEventListener('click', () => selectStudent(student, card));
+                    grid.appendChild(card);
+                });
+                
+                // Select first student by default
+                if (students.length > 0) {
+                    selectStudent(students[0], grid.firstChild);
+                }
+            } catch (error) {
+                console.error('Error loading students:', error);
+                document.getElementById('students-grid').innerHTML = 
+                    '<p class="text-danger">Error loading students</p>';
+            }
+        }
+        
+        async function selectStudent(student, cardElement) {
+            selectedStudent = student;
+            
+            // Update active state
+            document.querySelectorAll('.student-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            cardElement.classList.add('active');
+            
+            // Load trip and tracking info
+            await loadTripStatus();
+            await loadDriverInfo();
+            await loadRecentTrips();
+        }
+        
+        async function loadTripStatus() {
+            if (!selectedStudent) return;
+            
+            try {
+                // Get all trips
+                const allTrips = await getAllTrips();
+                const studentTrips = allTrips.filter(t => t.studentId === selectedStudent.id);
+                const activeTrip = studentTrips.find(t => t.status === 'started');
+                
+                const container = document.getElementById('trip-status-container');
+                
+                if (!activeTrip) {
+                    container.innerHTML = `
+                        <div class="trip-status-box status-inactive">
+                            <div><span class="status-indicator"></span><strong>NO ACTIVE TRIP</strong></div>
+                            <p style="margin: 10px 0 0 0;">Bus is not currently in operation for your child.</p>
+                        </div>
+                    `;
+                    
+                    // Clear map
+                    if (busMarker) busMarker.setMap(null);
+                    if (locationUnsubscribe) locationUnsubscribe();
+                    
+                    return;
+                }
+                
+                // Get bus and driver info
+                const bus = await getBusData(activeTrip.busId);
+                const driver = await getDriverData(activeTrip.driverId);
+                
+                // Get location
+                const locationRef = `locations/${activeTrip.busId}`;
+                const locationUnsubscribeNew = subscribeToData(locationRef, async (location) => {
+                    if (!location) return;
+                    
+                    // Update map
+                    updateMapMarker(location);
+                    
+                    // Calculate distance and ETA
+                    const userLat = 28.7041; // Would get from parent's location
+                    const userLng = 77.1025;
+                    const distance = calculateDistance(userLat, userLng, location.latitude, location.longitude);
+                    const eta = estimateETA(distance);
+                    
+                    // Update status box
+                    const statusBox = document.querySelector('.trip-status-box');
+                    if (statusBox) {
+                        statusBox.innerHTML = `
+                            <div><span class="status-indicator"></span><strong>TRIP ACTIVE</strong></div>
+                            <div style="margin-top: 10px;">
+                                <p><strong>Bus:</strong> ${bus ? bus.busNumber : 'N/A'}</p>
+                                <p><strong>Driver:</strong> ${driver ? driver.name : 'N/A'}</p>
+                                <p><strong>Distance:</strong> ${distance.toFixed(1)} km away</p>
+                                <p><strong>ETA:</strong> ${eta} minutes</p>
+                                <p><strong>Speed:</strong> ${(location.speed || 0).toFixed(1)} m/s</p>
+                                <p style="font-size: 12px; margin-top: 10px;">Last updated: ${new Date(location.updatedAt).toLocaleTimeString()}</p>
+                            </div>
+                        `;
+                    }
+                });
+                
+                if (locationUnsubscribe) locationUnsubscribe();
+                locationUnsubscribe = locationUnsubscribeNew;
+                
+                // Initial display
+                container.innerHTML = `
+                    <div class="trip-status-box status-active">
+                        <div><span class="status-indicator"></span><strong>TRIP ACTIVE</strong></div>
+                        <p style="margin: 10px 0 0 0;">Tracking bus in real-time...</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Error loading trip status:', error);
+            }
+        }
+        
+        function updateMapMarker(location) {
+            if (!map) return;
+            
+            const position = { lat: location.latitude, lng: location.longitude };
+            
+            if (!busMarker) {
+                busMarker = new google.maps.Marker({
+                    position: position,
+                    map: map,
+                    title: 'Bus Location',
+                    icon: 'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
+                });
+            } else {
+                // Smooth animation
+                busMarker.setPosition(position);
+            }
+            
+            // Center map on bus
+            map.setCenter(position);
+            map.setZoom(15);
+        }
+        
+        async function loadDriverInfo() {
+            if (!selectedStudent) return;
+            
+            try {
+                const allTrips = await getAllTrips();
+                const activeTrip = allTrips.find(t => 
+                    t.studentId === selectedStudent.id && t.status === 'started'
+                );
+                
+                const container = document.getElementById('driver-info-container');
+                
+                if (!activeTrip) {
+                    container.innerHTML = '<p class="text-muted">No active trip</p>';
+                    return;
+                }
+                
+                const driver = await getDriverData(activeTrip.driverId);
+                
+                if (!driver) {
+                    container.innerHTML = '<p class="text-muted">Driver information not available</p>';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>Name:</label>
+                            <span>${driver.name || 'N/A'}</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Mobile:</label>
+                            <span>${driver.mobile || 'N/A'}</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Email:</label>
+                            <span>${driver.email || 'N/A'}</span>
+                        </div>
+                        <div class="info-item">
+                            <label>License:</label>
+                            <span>${driver.licenseNumber || 'N/A'}</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <a href="tel:${driver.mobile}" class="btn btn-primary btn-sm">Call Driver</a>
+                        <a href="mailto:${driver.email}" class="btn btn-secondary btn-sm">Email Driver</a>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading driver info:', error);
+            }
+        }
+        
+        async function loadRecentTrips() {
+            if (!selectedStudent) return;
+            
+            try {
+                const allTrips = await getAllTrips();
+                const studentTrips = allTrips
+                    .filter(t => t.studentId === selectedStudent.id && t.status === 'ended')
+                    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+                    .slice(0, 5);
+                
+                const container = document.getElementById('recent-trips-container');
+                
+                if (!studentTrips || studentTrips.length === 0) {
+                    container.innerHTML = '<p class="text-muted">No completed trips yet</p>';
+                    return;
+                }
+                
+                let html = '<div class="table-responsive"><table class="table"><thead><tr>';
+                html += '<th>Date</th><th>Type</th><th>Duration</th></tr></thead><tbody>';
+                
+                studentTrips.forEach(trip => {
+                    const startTime = new Date(trip.createdAt);
+                    const endTime = new Date(trip.updatedAt);
+                    const duration = Math.round((endTime - startTime) / 60000); // minutes
+                    
+                    html += `
+                        <tr>
+                            <td>${formatDateTime(trip.createdAt)}</td>
+                            <td>${trip.type.toUpperCase()}</td>
+                            <td>${duration} min</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading recent trips:', error);
+            }
+        }
+        
+        // Initialize
+        window.addEventListener('load', init);
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (locationUnsubscribe) locationUnsubscribe();
+            if (busMarker) busMarker.setMap(null);
+        });
+    </script>
+</body>
+</html>

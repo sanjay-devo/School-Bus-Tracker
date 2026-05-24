@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip History - Driver</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2>Driver Panel</h2></div>
+            <nav class="sidebar-nav">
+                <a href="/driver/dashboard.html" class="nav-item"><span>Dashboard</span></a>
+                <a href="/driver/trips.html" class="nav-item active"><span>Trip History</span></a>
+                <a href="/driver/profile.html" class="nav-item"><span>Profile</span></a>
+                <a href="/logout.html" class="nav-item"><span>Logout</span></a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="content-header"><h1>Trip History</h1></header>
+            <div class="dashboard-content">
+                <div class="card">
+                    <div class="card-body" id="trips-container">
+                        <p class="text-muted">Loading trip history...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script type="module">
+        import { requireRole, formatDateTime } from '/assets/js/utils.js';
+        
+        async function init() {
+            const authUser = await requireRole('driver');
+            if (!authUser) return;
+            
+            // Placeholder - load trips from Firebase
+            document.getElementById('trips-container').innerHTML = 
+                '<p class="text-muted">Trip history feature coming soon</p>';
+        }
+        
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

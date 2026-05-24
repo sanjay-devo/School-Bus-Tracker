@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Tracking - Admin Panel</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAxn47G2g9sT3WUEMFEnX_qZB3s8wXkoGM&libraries=geometry"></script>
+    <style>
+        #tracking-map {
+            width: 100%;
+            height: 600px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .buses-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+        
+        .bus-item {
+            padding: 10px;
+            border-bottom: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .bus-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .bus-item.active {
+            background: #e3f2fd;
+            border-left: 3px solid var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2>Admin Panel</h2></div>
+            <nav class="sidebar-nav">
+                <a href="/admin/dashboard.html" class="nav-item"><span>Dashboard</span></a>
+                <a href="/admin/drivers.html" class="nav-item"><span>Drivers</span></a>
+                <a href="/admin/parents.html" class="nav-item"><span>Parents</span></a>
+                <a href="/admin/students.html" class="nav-item"><span>Students</span></a>
+                <a href="/admin/buses.html" class="nav-item"><span>Buses</span></a>
+                <a href="/admin/routes.html" class="nav-item"><span>Routes</span></a>
+                <a href="/admin/live-tracking.html" class="nav-item active"><span>Live Tracking</span></a>
+                <a href="/logout.html" class="nav-item"><span>Logout</span></a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="content-header"><h1>Live Bus Tracking</h1></header>
+            <div class="dashboard-content">
+                <div class="card">
+                    <div class="card-body">
+                        <div id="tracking-map"></div>
+                    </div>
+                </div>
+                
+                <div class="card mt-4">
+                    <div class="card-header"><h3>Active Buses</h3></div>
+                    <div class="card-body">
+                        <div class="buses-list" id="buses-list">
+                            <p class="text-muted" style="padding: 10px;">Loading buses...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script type="module">
+        import { requireRole } from '/assets/js/utils.js';
+        import { getActiveTrips, startTrackingBus, stopTrackingBus, getBusData, getDriverData, subscribeToData } from '/assets/js/firebase-db.js';
+        
+        let authUser = null;
+        let map = null;
+        let markers = {};
+        let subscriptions = {};
+        
+        async function init() {
+            authUser = await requireRole(['admin']);
+            if (!authUser) return;
+            
+            initializeMap();
+            loadActiveBuses();
+            
+            // Refresh every 5 seconds
+            setInterval(loadActiveBuses, 5000);
+        }
+        
+        function initializeMap() {
+            const mapOptions = {
+                zoom: 13,
+                center: { lat: 28.7041, lng: 77.1025 },
+                mapTypeId: google.maps.MapTypeId.ROADMAP
+            };
+            
+            map = new google.maps.Map(document.getElementById('tracking-map'), mapOptions);
+        }
+        
+        async function loadActiveBuses() {
+            try {
+                const trips = await getActiveTrips();
+                const busList = document.getElementById('buses-list');
+                
+                if (!trips || trips.length === 0) {
+                    busList.innerHTML = '<p class="text-muted" style="padding: 10px;">No active buses</p>';
+                    return;
+                }
+                
+                let html = '';
+                for (const trip of trips) {
+                    const bus = await getBusData(trip.busId);
+                    const driver = await getDriverData(trip.driverId);
+                    
+                    if (!bus) continue;
+                    
+                    html += `
+                        <div class="bus-item" onclick="selectBus('${trip.busId}')">
+                            <strong>${bus.busNumber || 'Bus ' + trip.busId}</strong><br>
+                            <small>Driver: ${driver ? driver.name : 'N/A'}</small><br>
+                            <small>Type: ${trip.type || 'N/A'}</small>
+                        </div>
+                    `;
+                    
+                    // Subscribe to location
+                    if (!subscriptions[trip.busId]) {
+                        subscriptions[trip.busId] = subscribeToData(`locations/${trip.busId}`, (location) => {
+                            if (location) {
+                                updateMarker(trip.busId, location, bus.busNumber);
+                            }
+                        });
+                    }
+                }
+                
+                busList.innerHTML = html;
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        function updateMarker(busId, location, label) {
+            const position = { lat: location.latitude, lng: location.longitude };
+            
+            if (!markers[busId]) {
+                markers[busId] = new google.maps.Marker({
+                    position: position,
+                    map: map,
+                    title: label || busId,
+                    icon: 'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
+                });
+            } else {
+                markers[busId].setPosition(position);
+            }
+        }
+        
+        window.selectBus = function(busId) {
+            if (markers[busId]) {
+                map.setCenter(markers[busId].getPosition());
+                map.setZoom(16);
+            }
+        };
+        
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

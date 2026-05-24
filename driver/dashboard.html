@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Dashboard - School Bus Tracker</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAxn47G2g9sT3WUEMFEnX_qZB3s8wXkoGM&libraries=geometry"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Driver Panel</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/driver/dashboard.html" class="nav-item active">
+                    <span>Dashboard</span>
+                </a>
+                <a href="/driver/trips.html" class="nav-item">
+                    <span>Trip History</span>
+                </a>
+                <a href="/driver/profile.html" class="nav-item">
+                    <span>Profile</span>
+                </a>
+                <a href="/logout.html" class="nav-item">
+                    <span>Logout</span>
+                </a>
+            </nav>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Welcome, <span id="driver-name">Driver</span></h1>
+                <div class="header-actions">
+                    <span class="status-badge" id="connection-status">Connected</span>
+                </div>
+            </header>
+            
+            <div class="dashboard-content">
+                <!-- Bus Info Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Bus Information</h3>
+                    </div>
+                    <div class="card-body" id="bus-info-container">
+                        <p class="text-muted">Loading bus information...</p>
+                    </div>
+                </div>
+                
+                <!-- Trip Controls -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Trip Controls</h3>
+                        <span class="trip-status" id="trip-status">No Active Trip</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="trip-controls">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- GPS Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>GPS Status</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="gps-status">
+                            <div class="status-item">
+                                <label>Latitude:</label>
+                                <span id="current-lat">-</span>
+                            </div>
+                            <div class="status-item">
+                                <label>Longitude:</label>
+                                <span id="current-lng">-</span>
+                            </div>
+                            <div class="status-item">
+                                <label>Accuracy:</label>
+                                <span id="current-accuracy">-</span>
+                            </div>
+                            <div class="status-item">
+                                <label>Speed:</label>
+                                <span id="current-speed">-</span>
+                            </div>
+                            <div class="status-item">
+                                <label>Last Update:</label>
+                                <span id="last-update">-</span>
+                            </div>
+                            <div class="status-item">
+                                <label>Status:</label>
+                                <span id="location-update-status">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script type="module">
+        import { requireRole, generateId, showNotification } from '/assets/js/utils.js';
+        import { getUserData, updateBusLocation, createTrip, endTrip, getRouteData } from '/assets/js/firebase-db.js';
+        
+        let authUser = null;
+        let currentBus = null;
+        let activeTrip = null;
+        let watchId = null;
+        let lastLocationUpdate = 0;
+        const LOCATION_UPDATE_INTERVAL = 1000; // Send location every 1 second
+        
+        // Initialize
+        async function init() {
+            authUser = await requireRole('driver');
+            if (!authUser) return;
+            
+            document.getElementById('driver-name').textContent = authUser.userData.name;
+            
+            // Monitor online/offline
+            window.addEventListener('online', () => {
+                document.getElementById('connection-status').textContent = 'Connected';
+                document.getElementById('connection-status').className = 'status-badge status-online';
+                showNotification('Back online', 'success');
+            });
+            
+            window.addEventListener('offline', () => {
+                document.getElementById('connection-status').textContent = 'Offline';
+                document.getElementById('connection-status').className = 'status-badge status-offline';
+                showNotification('Offline mode', 'warning');
+            });
+            
+            // Load bus information
+            await loadBusInfo();
+            
+            // Check for active trip
+            await checkActiveTrip();
+        }
+        
+        async function loadBusInfo() {
+            try {
+                // Get assigned bus for this driver
+                const buses = await getBusesForDriver(authUser.user.uid);
+                
+                if (!buses || buses.length === 0) {
+                    document.getElementById('bus-info-container').innerHTML = 
+                        '<p class="text-muted">No bus assigned to you yet. Contact administrator.</p>';
+                    document.getElementById('trip-controls').innerHTML = '';
+                    return;
+                }
+                
+                currentBus = buses[0];
+                
+                // Get route information if available
+                const route = currentBus.routeId ? await getRouteData(currentBus.routeId) : null;
+                
+                // Display bus information
+                let html = '<div class="info-grid">';
+                html += `<div class="info-item"><label>Bus Number:</label><span>${currentBus.busNumber}</span></div>`;
+                html += `<div class="info-item"><label>Route:</label><span>${route ? route.routeName : 'Not assigned'}</span></div>`;
+                html += `<div class="info-item"><label>Capacity:</label><span>${currentBus.capacity || 'N/A'} students</span></div>`;
+                html += `<div class="info-item"><label>Registration:</label><span>${currentBus.registrationNumber || 'N/A'}</span></div>`;
+                html += '</div>';
+                
+                document.getElementById('bus-info-container').innerHTML = html;
+                
+                // Update trip controls
+                updateTripControls();
+            } catch (error) {
+                console.error('Error loading bus info:', error);
+                document.getElementById('bus-info-container').innerHTML = 
+                    '<p class="text-danger">Error loading bus information</p>';
+            }
+        }
+        
+        async function checkActiveTrip() {
+            try {
+                // Get active trips for this driver
+                const trips = await getDriverTrips(authUser.user.uid);
+                activeTrip = trips.find(t => t.status === 'started');
+                
+                updateTripControls();
+                
+                if (activeTrip) {
+                    document.getElementById('trip-status').textContent = 'Trip Active';
+                    startLocationTracking();
+                }
+            } catch (error) {
+                console.error('Error checking active trip:', error);
+            }
+        }
+        
+        function updateTripControls() {
+            const container = document.getElementById('trip-controls');
+            
+            if (!currentBus) {
+                container.innerHTML = '<p class="text-muted">Bus not assigned</p>';
+                return;
+            }
+            
+            if (!activeTrip) {
+                // Show start trip form
+                container.innerHTML = `
+                    <div class="form-group">
+                        <label for="trip-type">Trip Type:</label>
+                        <select id="trip-type" class="form-control">
+                            <option value="pickup">Pickup</option>
+                            <option value="drop">Drop</option>
+                        </select>
+                    </div>
+                    <button onclick="startTrip()" class="btn btn-success btn-lg">Start Trip</button>
+                    <button onclick="sendSOS()" class="btn btn-warning btn-lg mt-2 btn-block">🚨 SOS Emergency</button>
+                `;
+            } else {
+                // Show trip active info
+                container.innerHTML = `
+                    <div class="active-trip-info">
+                        <p><strong>Trip ID:</strong> ${activeTrip.id}</p>
+                        <p><strong>Started:</strong> ${new Date(activeTrip.createdAt).toLocaleTimeString()}</p>
+                        <p><strong>Type:</strong> ${activeTrip.type.toUpperCase()}</p>
+                        <p class="text-success" id="location-tracking-status">Location tracking active...</p>
+                    </div>
+                    <button onclick="stopTrip()" class="btn btn-danger btn-lg">Stop Trip</button>
+                    <button onclick="sendSOS()" class="btn btn-warning btn-lg mt-2 btn-block">🚨 SOS Emergency</button>
+                `;
+            }
+        }
+        
+        window.startTrip = async function() {
+            if (!currentBus) {
+                showNotification('Bus not assigned', 'error');
+                return;
+            }
+            
+            const tripType = document.getElementById('trip-type').value;
+            
+            // Get current GPS location
+            if (!navigator.geolocation) {
+                showNotification('Geolocation not supported', 'error');
+                return;
+            }
+            
+            try {
+                const position = await getCurrentPosition();
+                
+                // Create trip in Firebase
+                const tripId = generateId();
+                const tripData = {
+                    id: tripId,
+                    driverId: authUser.user.uid,
+                    busId: currentBus.id,
+                    routeId: currentBus.routeId || null,
+                    type: tripType,
+                    status: 'started',
+                    startLatitude: position.coords.latitude,
+                    startLongitude: position.coords.longitude,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                
+                const result = await createTrip(tripId, tripData);
+                
+                if (result.success) {
+                    activeTrip = tripData;
+                    updateTripControls();
+                    startLocationTracking();
+                    showNotification('Trip started successfully', 'success');
+                } else {
+                    showNotification('Failed to start trip: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error starting trip:', error);
+                showNotification('Error starting trip', 'error');
+            }
+        };
+        
+        window.stopTrip = async function() {
+            if (!activeTrip) {
+                showNotification('No active trip', 'error');
+                return;
+            }
+            
+            try {
+                const result = await endTrip(activeTrip.id);
+                
+                if (result.success) {
+                    stopLocationTracking();
+                    activeTrip = null;
+                    updateTripControls();
+                    document.getElementById('trip-status').textContent = 'No Active Trip';
+                    showNotification('Trip ended successfully', 'success');
+                } else {
+                    showNotification('Failed to end trip: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error stopping trip:', error);
+                showNotification('Error ending trip', 'error');
+            }
+        };
+        
+        window.sendSOS = async function() {
+            if (!currentBus) {
+                showNotification('Bus not assigned', 'error');
+                return;
+            }
+            
+            try {
+                const position = await getCurrentPosition();
+                
+                // Create SOS notification in Firebase
+                const sosData = {
+                    driverId: authUser.user.uid,
+                    busId: currentBus.id,
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    message: 'SOS Emergency from Driver',
+                    timestamp: new Date().toISOString(),
+                    type: 'sos'
+                };
+                
+                // Save SOS to notifications path
+                await createNotification(authUser.user.uid, sosData);
+                
+                showNotification('SOS sent to admin', 'success');
+            } catch (error) {
+                console.error('Error sending SOS:', error);
+                showNotification('Failed to send SOS', 'error');
+            }
+        };
+        
+        // ===== LOCATION TRACKING =====
+        
+        function getCurrentPosition() {
+            return new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                });
+            });
+        }
+        
+        function startLocationTracking() {
+            if (!activeTrip || !currentBus) return;
+            
+            // Stop any existing watch
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+            
+            watchId = navigator.geolocation.watchPosition(
+                async (position) => {
+                    // Update GPS display
+                    document.getElementById('current-lat').textContent = 
+                        position.coords.latitude.toFixed(6);
+                    document.getElementById('current-lng').textContent = 
+                        position.coords.longitude.toFixed(6);
+                    document.getElementById('current-accuracy').textContent = 
+                        position.coords.accuracy.toFixed(2) + ' m';
+                    document.getElementById('current-speed').textContent = 
+                        (position.coords.speed || 0).toFixed(2) + ' m/s';
+                    document.getElementById('last-update').textContent = 
+                        new Date().toLocaleTimeString();
+                    
+                    // Throttle updates to 1 second
+                    const now = Date.now();
+                    if (now - lastLocationUpdate < LOCATION_UPDATE_INTERVAL) {
+                        return;
+                    }
+                    lastLocationUpdate = now;
+                    
+                    // Update Firebase with location
+                    if (navigator.onLine) {
+                        try {
+                            await updateBusLocation(
+                                currentBus.id,
+                                position.coords.latitude,
+                                position.coords.longitude,
+                                position.coords.speed || 0
+                            );
+                            document.getElementById('location-update-status').textContent = 'Synced';
+                            document.getElementById('location-update-status').className = 'text-success';
+                        } catch (error) {
+                            console.error('Error updating location:', error);
+                            document.getElementById('location-update-status').textContent = 'Sync failed';
+                            document.getElementById('location-update-status').className = 'text-warning';
+                        }
+                    } else {
+                        document.getElementById('location-update-status').textContent = 'Offline - will sync when online';
+                        document.getElementById('location-update-status').className = 'text-warning';
+                    }
+                },
+                (error) => {
+                    console.error('Geolocation error:', error);
+                    let msg = 'Location error';
+                    if (error.code === error.PERMISSION_DENIED) msg = 'Permission denied';
+                    else if (error.code === error.POSITION_UNAVAILABLE) msg = 'Position unavailable';
+                    else if (error.code === error.TIMEOUT) msg = 'Timeout';
+                    
+                    document.getElementById('location-update-status').textContent = msg;
+                    document.getElementById('location-update-status').className = 'text-danger';
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                }
+            );
+        }
+        
+        function stopLocationTracking() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+        }
+        
+        // ===== HELPER FUNCTIONS =====
+        
+        async function getBusesForDriver(driverId) {
+            try {
+                const buses = await getAllBuses();
+                return buses.filter(b => b.driverId === driverId);
+            } catch (error) {
+                console.error('Error getting buses:', error);
+                return [];
+            }
+        }
+        
+        async function getDriverTrips(driverId) {
+            try {
+                const allTrips = await getAllTrips();
+                return allTrips.filter(t => t.driverId === driverId);
+            } catch (error) {
+                console.error('Error getting trips:', error);
+                return [];
+            }
+        }
+        
+        // Import Firebase functions
+        import { getAllBuses, getAllTrips, createNotification } from '/assets/js/firebase-db.js';
+        
+        // Initialize on page load
+        window.addEventListener('load', init);
+        
+        // Make functions available globally
+        window.getCurrentPosition = getCurrentPosition;
+    </script>
+</body>
+</html>

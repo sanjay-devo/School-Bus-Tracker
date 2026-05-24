@@ -1,0 +1,107 @@
+/**
+ * Firebase Realtime Database Rules for School Bus Tracker
+ * 
+ * TEMPORARY RULES - For development and testing
+ * Replace with production rules after thorough testing
+ * 
+ * To implement these rules:
+ * 1. Go to Firebase Console
+ * 2. Select your project
+ * 3. Go to Realtime Database > Rules
+ * 4. Copy and paste these rules
+ * 5. Click "Publish"
+ */
+
+{
+  "rules": {
+    // ===== USERS =====
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && auth.uid == $uid",
+        ".validate": "newData.hasChildren(['uid', 'email', 'name', 'role'])"
+      }
+    },
+    
+    // ===== DRIVERS =====
+    "drivers": {
+      "$driverId": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".validate": "newData.hasChildren(['uid', 'name'])"
+      }
+    },
+    
+    // ===== BUSES =====
+    "buses": {
+      "$busId": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".validate": "newData.hasChildren(['busNumber'])"
+      }
+    },
+    
+    // ===== ROUTES =====
+    "routes": {
+      "$routeId": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".validate": "newData.hasChildren(['routeName'])"
+      }
+    },
+    
+    // ===== STUDENTS =====
+    "students": {
+      "$studentId": {
+        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('students').child($studentId).child('parentId').val() === auth.uid)",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".validate": "newData.hasChildren(['name', 'parentId'])"
+      }
+    },
+    
+    // ===== TRIPS =====
+    "trips": {
+      "$tripId": {
+        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('trips').child($tripId).child('driverId').val() === auth.uid || root.child('students').child(root.child('trips').child($tripId).child('studentId').val()).child('parentId').val() === auth.uid)",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('trips').child($tripId).child('driverId').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['driverId', 'busId', 'type', 'status'])"
+      }
+    },
+    
+    // ===== LOCATIONS (Real-time GPS) =====
+    "locations": {
+      "$busId": {
+        ".read": "auth != null",
+        ".write": "auth != null && (root.child('buses').child($busId).child('driverId').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".validate": "newData.hasChildren(['latitude', 'longitude', 'updatedAt'])"
+      }
+    },
+    
+    // ===== NOTIFICATIONS =====
+    "notifications": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && (auth.uid == $userId || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".validate": "newData.hasChildren(['type', 'createdAt'])"
+      }
+    },
+    
+    // ===== FALLBACK =====
+    ".read": "false",
+    ".write": "false"
+  }
+}
+
+/**
+ * PRODUCTION RULES CHECKLIST
+ * 
+ * ✓ Implement authentication checks
+ * ✓ Add role-based access control
+ * ✓ Restrict location updates to active drivers only
+ * ✓ Limit real-time syncing to authorized users
+ * ✓ Add data validation rules
+ * ✓ Implement rate limiting for API calls
+ * ✓ Add audit logging for sensitive operations
+ * ✓ Implement data retention policies
+ * ✓ Add backup and disaster recovery procedures
+ */

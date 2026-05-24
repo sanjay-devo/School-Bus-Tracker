@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip History - Parent</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2>Parent Panel</h2></div>
+            <nav class="sidebar-nav">
+                <a href="/parent/dashboard.html" class="nav-item"><span>Dashboard</span></a>
+                <a href="/parent/students.html" class="nav-item"><span>My Students</span></a>
+                <a href="/parent/trip_history.html" class="nav-item active"><span>Trip History</span></a>
+                <a href="/parent/profile.html" class="nav-item"><span>Profile</span></a>
+                <a href="/logout.html" class="nav-item"><span>Logout</span></a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="content-header"><h1>Trip History</h1></header>
+            <div class="dashboard-content">
+                <div class="card">
+                    <div class="card-body" id="history-container">
+                        <p class="text-muted">Loading trip history...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script type="module">
+        import { requireRole, formatDateTime } from '/assets/js/utils.js';
+        import { getAllTrips, getStudentsByParent } from '/assets/js/firebase-db.js';
+        
+        async function init() {
+            const authUser = await requireRole('parent');
+            if (!authUser) return;
+            
+            const students = await getStudentsByParent(authUser.user.uid);
+            const allTrips = await getAllTrips();
+            const container = document.getElementById('history-container');
+            
+            // Filter trips for this parent's students
+            const studentIds = students.map(s => s.id);
+            const trips = allTrips.filter(t => studentIds.includes(t.studentId) && t.status === 'ended');
+            
+            if (!trips || trips.length === 0) {
+                container.innerHTML = '<p class="text-muted">No trip history available</p>';
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Duration</th><th>Bus</th></tr></thead><tbody>';
+            trips.forEach(t => {
+                const duration = Math.round((new Date(t.updatedAt) - new Date(t.createdAt)) / 60000);
+                html += `<tr><td>${formatDateTime(t.createdAt)}</td><td>${t.type || 'N/A'}</td><td>${duration} min</td><td>${t.busId || 'N/A'}</td></tr>`;
+            });
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+        
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

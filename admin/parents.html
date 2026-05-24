@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parents - Admin Panel</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2>Admin Panel</h2></div>
+            <nav class="sidebar-nav">
+                <a href="/admin/dashboard.html" class="nav-item"><span>Dashboard</span></a>
+                <a href="/admin/drivers.html" class="nav-item"><span>Drivers</span></a>
+                <a href="/admin/parents.html" class="nav-item active"><span>Parents</span></a>
+                <a href="/admin/students.html" class="nav-item"><span>Students</span></a>
+                <a href="/admin/buses.html" class="nav-item"><span>Buses</span></a>
+                <a href="/admin/routes.html" class="nav-item"><span>Routes</span></a>
+                <a href="/logout.html" class="nav-item"><span>Logout</span></a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="content-header">
+                <h1>Parents Management</h1>
+            </header>
+            
+            <div class="dashboard-content">
+                <div class="card">
+                    <div class="card-body">
+                        <div id="parents-container">
+                            <p class="text-muted">Loading parents...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script type="module">
+        import { requireRole } from '/assets/js/utils.js';
+        import { getAllUsers } from '/assets/js/firebase-db.js';
+        
+        async function init() {
+            await requireRole(['admin']);
+            await loadParents();
+        }
+        
+        async function loadParents() {
+            try {
+                const parents = await getAllUsers('parent');
+                const container = document.getElementById('parents-container');
+                
+                if (!parents || parents.length === 0) {
+                    container.innerHTML = '<p class="text-muted">No parents found</p>';
+                    return;
+                }
+                
+                let html = '<div class="table-responsive"><table class="table"><thead><tr>';
+                html += '<th>Name</th><th>Email</th><th>Mobile</th><th>Joined</th></tr></thead><tbody>';
+                
+                parents.forEach(parent => {
+                    html += `<tr><td>${parent.name}</td><td>${parent.email}</td><td>${parent.mobile}</td><td>${new Date(parent.createdAt).toLocaleDateString()}</td></tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('parents-container').innerHTML = '<p class="text-danger">Error loading parents</p>';
+            }
+        }
+        
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

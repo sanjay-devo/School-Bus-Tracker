@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - School Bus Tracker</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-box">
+            <div class="logo">
+                <img src="/assets/images/bus-logo.png" alt="School Bus Tracker" onerror="this.style.display='none'">
+                <h1>School Bus Tracker</h1>
+            </div>
+            
+            <div id="error-alert" class="alert alert-error" style="display: none;"></div>
+            
+            <div class="login-tabs">
+                <button class="tab-btn active" onclick="showTab('regular')">Regular Login</button>
+                <button class="tab-btn" onclick="showTab('driver')">Driver Login</button>
+            </div>
+            
+            <!-- Regular Login Form -->
+            <form id="regular-login" class="login-form">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="mobile">Mobile Number</label>
+                    <input type="tel" id="mobile" name="mobile" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Login</button>
+            </form>
+            
+            <!-- Driver Login Form -->
+            <form id="driver-login" class="login-form" style="display: none;">
+                <div class="form-group">
+                    <label for="driver_email">Email</label>
+                    <input type="email" id="driver_email" name="driver_email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="driver_password">Password</label>
+                    <input type="password" id="driver_password" name="driver_password" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">Login as Driver</button>
+            </form>
+            
+            <div class="login-footer">
+                <p>New Parent? <a href="/parent_signup.html" style="color: var(--primary-color); text-decoration: none; font-weight: 600;">Sign up here</a></p>
+                <p style="margin-top: 10px;">School Bus Tracker System<br>
+                <small>Contact administrator for login credentials</small></p>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { loginUser } from '/assets/js/firebase-auth.js';
+        import { getUserData } from '/assets/js/firebase-db.js';
+        import { getRoleDashboardPath, showNotification } from '/assets/js/utils.js';
+        import { getAuthenticatedUser } from '/assets/js/utils.js';
+        import { auth } from '/assets/js/firebase-config.js';
+        
+        // Check if already logged in
+        window.addEventListener('load', async () => {
+            const authUser = await getAuthenticatedUser();
+            if (authUser && authUser.userData) {
+                const dashboardPath = getRoleDashboardPath(authUser.userData.role);
+                window.location.href = dashboardPath;
+            }
+        });
+        
+        // Tab switching
+        window.showTab = function(tab) {
+            const tabs = document.querySelectorAll('.tab-btn');
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            if (tab === 'regular') {
+                document.getElementById('regular-login').style.display = 'block';
+                document.getElementById('driver-login').style.display = 'none';
+                tabs[0].classList.add('active');
+            } else {
+                document.getElementById('regular-login').style.display = 'none';
+                document.getElementById('driver-login').style.display = 'block';
+                tabs[1].classList.add('active');
+            }
+        };
+        
+        // Regular login form
+        document.getElementById('regular-login').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const mobile = document.getElementById('mobile').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const result = await loginUser(email, password);
+                
+                if (!result.success) {
+                    showErrorAlert(result.error);
+                    return;
+                }
+                
+                // Verify mobile number matches
+                if (result.userData.mobile !== mobile) {
+                    showErrorAlert('Email and mobile number do not match');
+                    return;
+                }
+                
+                // Login successful
+                const dashboardPath = getRoleDashboardPath(result.userData.role);
+                window.location.href = dashboardPath;
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                showErrorAlert('Login failed. Please try again.');
+            }
+        });
+        
+        // Driver login form
+        document.getElementById('driver-login').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('driver_email').value;
+            const password = document.getElementById('driver_password').value;
+            
+            try {
+                const result = await loginUser(email, password);
+                
+                if (!result.success) {
+                    showErrorAlert(result.error);
+                    return;
+                }
+                
+                // Verify user is a driver
+                if (result.userData.role !== 'driver') {
+                    showErrorAlert('Invalid credentials for driver login');
+                    return;
+                }
+                
+                // Login successful
+                window.location.href = '/driver/dashboard.html';
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                showErrorAlert('Login failed. Please try again.');
+            }
+        });
+        
+        function showErrorAlert(message) {
+            const alertDiv = document.getElementById('error-alert');
+            alertDiv.textContent = message;
+            alertDiv.style.display = 'block';
+            setTimeout(() => {
+                alertDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

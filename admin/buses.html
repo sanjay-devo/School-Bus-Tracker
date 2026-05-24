@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buses - Admin Panel</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2>Admin Panel</h2></div>
+            <nav class="sidebar-nav">
+                <a href="/admin/dashboard.html" class="nav-item"><span>Dashboard</span></a>
+                <a href="/admin/drivers.html" class="nav-item"><span>Drivers</span></a>
+                <a href="/admin/parents.html" class="nav-item"><span>Parents</span></a>
+                <a href="/admin/students.html" class="nav-item"><span>Students</span></a>
+                <a href="/admin/buses.html" class="nav-item active"><span>Buses</span></a>
+                <a href="/admin/routes.html" class="nav-item"><span>Routes</span></a>
+                <a href="/logout.html" class="nav-item"><span>Logout</span></a>
+            </nav>
+        </aside>
+        
+        <main class="main-content">
+            <header class="content-header"><h1>Buses Management</h1></header>
+            <div class="dashboard-content">
+                <div class="card">
+                    <div class="card-body" id="buses-container">
+                        <p class="text-muted">Loading buses...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script type="module">
+        import { requireRole } from '/assets/js/utils.js';
+        import { getAllBuses } from '/assets/js/firebase-db.js';
+        
+        async function init() {
+            await requireRole(['admin']);
+            const buses = await getAllBuses();
+            const container = document.getElementById('buses-container');
+            
+            if (!buses || buses.length === 0) {
+                container.innerHTML = '<p class="text-muted">No buses found</p>';
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table"><thead><tr><th>Bus Number</th><th>Registration</th><th>Capacity</th><th>Driver</th><th>Route</th></tr></thead><tbody>';
+            buses.forEach(b => {
+                html += `<tr><td>${b.busNumber || 'N/A'}</td><td>${b.registrationNumber || 'N/A'}</td><td>${b.capacity || 'N/A'}</td><td>${b.driverId || 'N/A'}</td><td>${b.routeId || 'N/A'}</td></tr>`;
+            });
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+        
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
